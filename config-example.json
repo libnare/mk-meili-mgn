@@ -1,0 +1,16 @@
+{
+  "db": {
+    "host": "postgresql.local",
+    "port": 5432,
+    "user": "postgres",
+    "password": "password",
+    "database": "database"
+  },
+  "meili": {
+    "host": "meili.local",
+    "port": 7700,
+    "apikey": "password",
+    "ssl": true,
+    "reset": false
+  }
+}
