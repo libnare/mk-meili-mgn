@@ -69,8 +69,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             stdout,
             clear,
             move_to_col,
-            SetForegroundColor(Color::Green),
-            Print(format!("Count: {}, id: {}, createdAt: {}", count + 1, data.id, data.created_at)),
+            SetForegroundColor(Color::Magenta),
+            Print(format!("Count: {}, id: {}, createdAt: {} ", count + 1, data.id, data.created_at)),
             ResetColor,
         )?;
 
@@ -110,7 +110,14 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         println!("All errors have been output to error-{}.log", timestamp);
     }
 
-    println!("Done: {}", rows_len);
+    execute!(
+        stdout,
+        Clear(ClearType::CurrentLine),
+        MoveToColumn(0),
+        SetForegroundColor(Color::Green),
+        Print(format!("{} notes have been added\n", rows_len - errors.len())),
+        ResetColor,
+    )?;
 
     Ok(())
 }
