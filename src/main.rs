@@ -37,11 +37,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .await?;
     let rows_len = rows.len();
 
-    let mut stdout = io::stdout();
+    let mut data_vec = Vec::new();
 
-    let errors = Mutex::new(Vec::new());
-
-    for (count, row) in rows.into_iter().enumerate() {
+    for row in rows {
         let notes = Notes {
             id: row.get("id"),
             created_at: row.get("createdAt"),
@@ -54,15 +52,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         let timestamp = notes.created_at.timestamp_millis();
         let data = json!({
-            "id": notes.id,
-            "createdAt": timestamp,
-            "userId": notes.user_id,
-            "userHost": notes.user_host,
-            "channelId": notes.channel_id,
-            "cw": notes.cw,
-            "text": notes.text,
-        });
+        "id": notes.id,
+        "createdAt": timestamp,
+        "userId": notes.user_id,
+        "userHost": notes.user_host,
+        "channelId": notes.channel_id,
+        "cw": notes.cw,
+        "text": notes.text,
+    });
 
+        data_vec.push(data);
+    }
+
+    let mut stdout = io::stdout();
+    let errors = Mutex::new(Vec::new());
+
+    for (count, data) in data_vec.iter().enumerate() {
         let clear = Clear(ClearType::CurrentLine);
         let move_to_col = MoveToColumn(0);
 
@@ -71,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             clear,
             move_to_col,
             SetForegroundColor(Color::Green),
-            Print(format!("Count: {}, id: {}, createdAt: {}", count + 1, notes.id, notes.created_at)),
+            Print(format!("Count: {}, id: {}, createdAt: {}", count + 1, data["id"], data["createdAt"])),
             ResetColor,
         )?;
 
