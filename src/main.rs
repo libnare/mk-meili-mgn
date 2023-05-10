@@ -14,7 +14,10 @@ use crate::reset::reset;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let config = config().unwrap();
+    let config = config().unwrap_or_else(|err| {
+        println!("Configuration error: {}", err);
+        std::process::exit(1);
+    });
     let db = connect_db().await.unwrap();
 
     let protocol = if config.meili.ssl { "https" } else { "http" };
