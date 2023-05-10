@@ -6,10 +6,10 @@ mod reset;
 use crate::config::config;
 use crate::database::connect_db;
 use crate::r#struct::Notes;
-use serde_json::json;
 use meilisearch_sdk::{client::*};
 use crossterm::{cursor::MoveToColumn, execute, style::{Color, Print, ResetColor, SetForegroundColor}, terminal::{Clear, ClearType}};
 use std::{error::Error, io, sync::Mutex};
+use chrono::{DateTime, Utc};
 use crate::reset::reset;
 
 #[tokio::main]
@@ -44,9 +44,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut data_vec = Vec::new();
 
     for row in rows {
+        let created_at: DateTime<Utc> = row.get("createdAt");
         let notes = Notes {
             id: row.get("id"),
-            created_at: row.get("createdAt"),
+            created_at: created_at.timestamp() * 1000 + created_at.timestamp_subsec_millis() as i64,
             user_id: row.get("userId"),
             user_host: row.get("userHost"),
             channel_id: row.get("channelId"),
@@ -54,18 +55,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             text: row.get("text"),
         };
 
-        let timestamp = notes.created_at.timestamp_millis();
-        let data = json!({
-        "id": notes.id,
-        "createdAt": timestamp,
-        "userId": notes.user_id,
-        "userHost": notes.user_host,
-        "channelId": notes.channel_id,
-        "cw": notes.cw,
-        "text": notes.text,
-    });
-
-        data_vec.push(data);
+        data_vec.push(notes);
     }
 
     let mut stdout = io::stdout();
@@ -80,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             clear,
             move_to_col,
             SetForegroundColor(Color::Green),
-            Print(format!("Count: {}, id: {}, createdAt: {}", count + 1, data["id"], data["createdAt"])),
+            Print(format!("Count: {}, id: {}, createdAt: {}", count + 1, data.id, data.created_at)),
             ResetColor,
         )?;
 
@@ -116,7 +106,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     if !errors.is_empty() {
         println!("{} errors occurred", errors.len());
         for error in errors {
-            let timestamp = chrono::Utc::now().timestamp_millis();
+            let timestamp = Utc::now().timestamp_millis();
             std::fs::write(format!("error-{}.log", timestamp), format!("{:?}", error)).unwrap();
             println!("{:?}", error);
         }
