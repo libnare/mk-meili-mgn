@@ -24,7 +24,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let url = format!("{}://{}:{}", protocol, config.meili.host, config.meili.port);
     println!("Connecting to MeiliSearch at {}", url);
 
-    let client = Client::new(&url, Some(&config.meili.apikey));
+    let api_key = config.meili.apikey.clone();
+    let client = Client::new(&url, if api_key.is_empty() { None } else { Some(api_key) });
 
     if config.meili.reset {
         reset(&client, &url, &config).await;
