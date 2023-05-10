@@ -910,7 +910,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mknbfm"
+name = "mk-meili-mgn"
 version = "0.1.0"
 dependencies = [
  "chrono",
