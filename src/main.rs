@@ -105,11 +105,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let errors = errors.into_inner().unwrap();
     if !errors.is_empty() {
         println!("{} errors occurred", errors.len());
-        for error in errors {
-            let timestamp = Utc::now().timestamp_millis();
-            std::fs::write(format!("error-{}.log", timestamp), format!("{:?}", error)).unwrap();
-            println!("{:?}", error);
-        }
+        let timestamp = Utc::now().timestamp_millis();
+        std::fs::write(format!("error-{}.log", timestamp), format!("{:?}", errors)).unwrap();
+        println!("All errors have been output to error-{}.log", timestamp);
     }
 
     println!("Done: {}", rows_len);
