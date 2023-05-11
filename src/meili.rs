@@ -3,6 +3,8 @@ use meilisearch_sdk::settings::PaginationSetting;
 use meilisearch_sdk::task_info::TaskInfo;
 use serde_json::json;
 use std::error::Error;
+use reqwest::RequestBuilder;
+
 use crate::config::config;
 
 const INDEX_UID: &str = "notes";
@@ -11,6 +13,25 @@ async fn url() -> Result<String, Box<dyn Error>> {
     let config = config()?;
     let protocol = if config.meili.ssl { "https" } else { "http" };
     Ok(format!("{}://{}:{}", protocol, config.meili.host, config.meili.port))
+}
+
+async fn get_request_builder(
+    http_client: &reqwest::Client,
+    url: &str,
+    index_uid: &str,
+    path: &str,
+    json_payload: serde_json::Value,
+) -> Result<RequestBuilder, Box<dyn Error>> {
+    let mut request_builder = http_client
+        .patch(&format!("{}/indexes/{}/{}", url, index_uid, path))
+        .json(&json_payload);
+
+    let config = config()?;
+    if let Some(apikey) = &config.meili.apikey {
+        request_builder = request_builder.header("Authorization", format!("Bearer {}", apikey));
+    }
+
+    Ok(request_builder)
 }
 
 pub async fn connect_meili() -> Result<Client, Box<dyn Error>> {
@@ -28,7 +49,6 @@ pub async fn connect_meili() -> Result<Client, Box<dyn Error>> {
 }
 
 pub async fn reset(client: &Client) -> Result<(), Box<dyn Error>> {
-    let config = config().unwrap();
     let http_client = reqwest::Client::new();
     let url = url().await.unwrap();
 
@@ -61,15 +81,13 @@ pub async fn reset(client: &Client) -> Result<(), Box<dyn Error>> {
     let task: TaskInfo = client.index(INDEX_UID).set_pagination(pagination).await.unwrap();
     println!("Pagination: {}, {}", task.status, task.task_uid);
 
-    let request = json!({
-        "enabled": false
-    });
-
-    let mut request_builder = http_client.patch(&format!("{}/indexes/{}/settings/typo-tolerance", url, INDEX_UID)).json(&request);
-
-    if let Some(apikey) = &config.meili.apikey {
-        request_builder = request_builder.header("Authorization", format!("Bearer {}", apikey));
-    }
+    let request_builder = get_request_builder(
+        &http_client,
+        &url,
+        INDEX_UID,
+        "settings/typo-tolerance",
+        json!({ "enabled": false }),
+    ).await?;
 
     let typo_tolerances = match request_builder.send().await {
         Ok(response) => response,
