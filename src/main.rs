@@ -27,8 +27,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     let rows = db
-        .query(
-            "SELECT id, \"createdAt\", \"userId\", \"userHost\", \"channelId\", cw, text FROM note WHERE visibility NOT IN ('followers', 'specified') AND text IS NOT NULL ORDER BY \"createdAt\" DESC",
+        .query("
+        SELECT id, \"createdAt\", \"userId\", \"userHost\", \"channelId\", cw, text
+        FROM note
+        WHERE COALESCE(text, cw) IS NOT NULL
+          AND visibility IN ('home', 'public')
+          AND text IS NOT NULL",
             &[],
         )
         .await?;
