@@ -1,7 +1,7 @@
 mod database;
 mod config;
 mod r#struct;
-mod reset;
+mod meili;
 
 use crate::config::config;
 use crate::database::connect_db;
@@ -10,7 +10,7 @@ use meilisearch_sdk::{client::*};
 use crossterm::{cursor::MoveToColumn, execute, style::{Color, Print, ResetColor, SetForegroundColor}, terminal::{Clear, ClearType}};
 use std::{error::Error, io, sync::Mutex};
 use chrono::{DateTime, Utc};
-use crate::reset::reset;
+use crate::meili::reset;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
