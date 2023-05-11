@@ -3,7 +3,6 @@ use crate::config::config;
 use tokio_postgres::{Client, NoTls};
 
 pub async fn connect_db() -> Result<Client, Box<dyn Error>> {
-    println!("Connecting to database");
     let config = config()?;
     let (client, connection) = tokio_postgres::connect(
         &format!(
@@ -14,8 +13,14 @@ pub async fn connect_db() -> Result<Client, Box<dyn Error>> {
     ).await?;
     tokio::spawn(async move {
         if let Err(e) = connection.await {
-            eprintln!("database connection error: {}", e);
+            eprintln!("Error occurred while connecting to database: {}", e);
         }
     });
+
+    let row = client.query_one("SELECT version()", &[]).await?;
+    let version: &str = row.try_get(0)?;
+
+    println!("Connected to PostgreSQL: {}", version);
+
     Ok(client)
 }

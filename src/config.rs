@@ -22,7 +22,7 @@ pub struct DbConfig {
 pub struct MeiliConfig {
     pub host: String,
     pub port: u16,
-    pub apikey: String,
+    pub apikey: Option<String>,
     pub ssl: bool,
     pub reset: bool,
 }

@@ -6,11 +6,10 @@ mod meili;
 use crate::config::config;
 use crate::database::connect_db;
 use crate::r#struct::Notes;
-use meilisearch_sdk::{client::*};
 use crossterm::{cursor::MoveToColumn, execute, style::{Color, Print, ResetColor, SetForegroundColor}, terminal::{Clear, ClearType}};
 use std::{error::Error, io, sync::Mutex};
 use chrono::{DateTime, Utc};
-use crate::meili::reset;
+use crate::meili::{connect_meili, reset};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -19,16 +18,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         std::process::exit(1);
     });
     let db = connect_db().await.unwrap();
-
-    let protocol = if config.meili.ssl { "https" } else { "http" };
-    let url = format!("{}://{}:{}", protocol, config.meili.host, config.meili.port);
-    println!("Connecting to MeiliSearch at {}", url);
-
-    let api_key = config.meili.apikey.clone();
-    let client = Client::new(&url, if api_key.is_empty() { None } else { Some(api_key) });
+    let client = connect_meili().await.unwrap();
 
     if config.meili.reset {
-        reset(&client, &url, &config).await;
+        reset(&client).await.expect("Failed to MeiliSearch reset")
     } else {
         println!("Skipping reset");
     }
