@@ -5,6 +5,7 @@ mod meili;
 
 use chrono::Utc;
 use std::{error::Error, sync::Mutex};
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::{
     config::config,
@@ -38,6 +39,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let chunk_size = 19456; // https://stella.place/notes/9eo7ew8sed
     let data_chunks = data_vec.chunks(chunk_size);
     let mut total_added = 0;
+
+    let pb = ProgressBar::new(data_len as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({percent}%)").unwrap()
+            .progress_chars("#>-"),
+    );
 
     for (chunk_index, data_chunk) in data_chunks.enumerate() {
         let json_array = match serde_json::to_string(data_chunk) {
@@ -77,13 +85,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
 
         let res_status = res.status();
-        let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        println!("Added documents from chunk {}: {}, {}", chunk_index, res_status, time);
 
         if res_status.is_success() {
             total_added += data_chunk.len();
+            pb.inc(data_chunk.len() as u64);
+        } else {
+            errors.lock().unwrap().push(
+                format!("Error in chunk {}: {}",
+                        chunk_index, res.text().await.unwrap()
+                ));
         }
     }
+
+    pb.finish();
 
     let errors = errors.into_inner().unwrap();
     let total_skipped = errors.len();
