@@ -10,4 +10,5 @@ pub struct Notes {
     pub channel_id: Option<String>,
     pub cw: Option<String>,
     pub text: String,
+    pub tags: Vec<String>,
 }

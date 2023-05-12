@@ -72,6 +72,7 @@ pub async fn reset(client: &Client) -> Result<(), Box<dyn Error>> {
         "userId",
         "userHost",
         "channelId",
+        "tags",
     ]);
 
     let task: TaskInfo = client.index(INDEX_UID).set_settings(&settings).await.unwrap();

@@ -30,7 +30,7 @@ pub async fn connect_db() -> Result<Client, Box<dyn Error>> {
 pub async fn query_notes(db: &Client) -> Result<Vec<Notes>, Box<dyn Error>> {
     let rows = db
         .query("
-        SELECT id, \"createdAt\", \"userId\", \"userHost\", \"channelId\", cw, text
+        SELECT id, \"createdAt\", \"userId\", \"userHost\", \"channelId\", cw, text, tags
         FROM note
         WHERE COALESCE(text, cw) IS NOT NULL
           AND visibility IN ('home', 'public')
@@ -51,6 +51,7 @@ pub async fn query_notes(db: &Client) -> Result<Vec<Notes>, Box<dyn Error>> {
             channel_id: row.get("channelId"),
             cw: row.get("cw"),
             text: row.get("text"),
+            tags: row.get("tags"),
         };
 
         data_vec.push(notes);
