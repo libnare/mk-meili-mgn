@@ -3,15 +3,23 @@ mod config;
 mod r#struct;
 mod meili;
 
+use crossterm::{
+    cursor::MoveToColumn,
+    execute,
+    style::{Color, Print, ResetColor, SetForegroundColor},
+    terminal::{Clear, ClearType},
+};
+use std::{error::Error, io, sync::Mutex};
+use chrono::Utc;
+
 const INDEX_UID: &str = "notes";
 
-use crate::config::config;
-use crate::database::connect_db;
-use crate::r#struct::Notes;
-use crossterm::{cursor::MoveToColumn, execute, style::{Color, Print, ResetColor, SetForegroundColor}, terminal::{Clear, ClearType}};
-use std::{error::Error, io, sync::Mutex};
-use chrono::{DateTime, Utc};
-use crate::meili::{connect_meili, get_request_builder, reset, url};
+use crate::{
+    config::config,
+    database::connect_db,
+    meili::{connect_meili, get_request_builder, reset, url},
+};
+use crate::database::query_notes;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -28,34 +36,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         println!("Skipping reset");
     }
 
-    let rows = db
-        .query("
-        SELECT id, \"createdAt\", \"userId\", \"userHost\", \"channelId\", cw, text
-        FROM note
-        WHERE COALESCE(text, cw) IS NOT NULL
-          AND visibility IN ('home', 'public')
-          AND text IS NOT NULL",
-            &[],
-        )
-        .await?;
-    let rows_len = rows.len();
-
-    let mut data_vec = Vec::new();
-
-    for row in rows {
-        let created_at: DateTime<Utc> = row.get("createdAt");
-        let notes = Notes {
-            id: row.get("id"),
-            created_at: created_at.timestamp() * 1000 + created_at.timestamp_subsec_millis() as i64,
-            user_id: row.get("userId"),
-            user_host: row.get("userHost"),
-            channel_id: row.get("channelId"),
-            cw: row.get("cw"),
-            text: row.get("text"),
-        };
-
-        data_vec.push(notes);
-    }
+    let data_vec = query_notes(&db).await.unwrap();
+    let data_len = data_vec.len();
 
     let mut stdout = io::stdout();
     let errors = Mutex::new(Vec::new());
@@ -114,7 +96,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         Clear(ClearType::CurrentLine),
         MoveToColumn(0),
         SetForegroundColor(Color::Green),
-        Print(format!("{} notes have been added\n", rows_len - errors.len())),
+        Print(format!("{} notes have been added\n", data_len - errors.len())),
         ResetColor,
     )?;
 
