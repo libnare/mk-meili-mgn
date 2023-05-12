@@ -3,16 +3,8 @@ mod config;
 mod r#struct;
 mod meili;
 
-use crossterm::{
-    cursor::MoveToColumn,
-    execute,
-    style::{Color, Print, ResetColor, SetForegroundColor},
-    terminal::{Clear, ClearType},
-};
-use std::{error::Error, io, sync::Mutex};
+use std::{error::Error, sync::Mutex};
 use chrono::Utc;
-
-const INDEX_UID: &str = "notes";
 
 use crate::{
     config::config,
@@ -20,6 +12,8 @@ use crate::{
     meili::{connect_meili, get_request_builder, reset, url},
 };
 use crate::database::query_notes;
+
+const INDEX_UID: &str = "notes";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -31,7 +25,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let client = connect_meili().await.unwrap();
 
     if config.meili.reset {
-        reset(&client).await.expect("Failed to MeiliSearch reset")
+        reset(&client).await.expect("Failed to Meilisearch reset")
     } else {
         println!("Skipping reset");
     }
@@ -39,7 +33,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let data_vec = query_notes(&db).await.unwrap();
     let data_len = data_vec.len();
 
-    let mut stdout = io::stdout();
     let errors = Mutex::new(Vec::new());
 
     let chunk_size = 19456;
@@ -47,8 +40,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     for (chunk_index, data_chunk) in data_chunks.enumerate() {
         let json_array = serde_json::to_string(data_chunk).unwrap();
-        let clear = Clear(ClearType::CurrentLine);
-        let move_to_col = MoveToColumn(0);
 
         let http_client = reqwest::Client::new();
         let url = url().await.unwrap();
@@ -65,23 +56,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         let res = match request_builder.send().await {
             Ok(res) => res,
             Err(e) => {
-                execute!(
-            stdout,
-            clear,
-            move_to_col,
-            SetForegroundColor(Color::Red),
-            Print(format!("Add documents error: {:?}", e)),
-            ResetColor,
-        )?;
+                println!("Add documents error: {:?}", e);
                 errors.lock().unwrap().push(e);
                 continue;
             }
         };
+
         let res_status = res.status();
         let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
         println!("Add documents: {}, {}", res_status, time);
     }
-
 
     let errors = errors.into_inner().unwrap();
     if !errors.is_empty() {
@@ -91,14 +75,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         println!("All errors have been output to error-{}.log", timestamp);
     }
 
-    execute!(
-        stdout,
-        Clear(ClearType::CurrentLine),
-        MoveToColumn(0),
-        SetForegroundColor(Color::Green),
-        Print(format!("{} notes have been added\n", data_len - errors.len())),
-        ResetColor,
-    )?;
+    println!("{} notes have been added", data_len - errors.len());
 
     Ok(())
 }
