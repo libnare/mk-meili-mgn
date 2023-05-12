@@ -69,6 +69,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .progress_chars("#>-"),
     );
 
+    let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+    writeln!(&mut stdout, "<-- {}: Starting indexing. -->", time)?;
+    stdout.reset()?;
+
     for (chunk_index, data_chunk) in data_chunks.enumerate() {
         let json_array = match serde_json::to_string(data_chunk) {
             Ok(json_array) => json_array,
@@ -120,6 +125,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     pb.finish();
+
+    let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+    writeln!(&mut stdout, "<-- {}: Finished indexing. -->", time)?;
+    stdout.reset()?;
 
     let errors = errors.into_inner().unwrap();
     let total_skipped = errors.len();
