@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let errors = Mutex::new(Vec::new());
 
-    let chunk_size = 19456;
+    let chunk_size = 19456; // https://stella.place/notes/9eo7ew8sed
     let data_chunks = data_vec.chunks(chunk_size);
 
     for (chunk_index, data_chunk) in data_chunks.enumerate() {
