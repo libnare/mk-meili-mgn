@@ -3,13 +3,15 @@ mod config;
 mod r#struct;
 mod meili;
 
+const INDEX_UID: &str = "notes";
+
 use crate::config::config;
 use crate::database::connect_db;
 use crate::r#struct::Notes;
 use crossterm::{cursor::MoveToColumn, execute, style::{Color, Print, ResetColor, SetForegroundColor}, terminal::{Clear, ClearType}};
 use std::{error::Error, io, sync::Mutex};
 use chrono::{DateTime, Utc};
-use crate::meili::{connect_meili, reset};
+use crate::meili::{connect_meili, get_request_builder, reset, url};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -58,46 +60,46 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut stdout = io::stdout();
     let errors = Mutex::new(Vec::new());
 
-    for (count, data) in data_vec.iter().enumerate() {
+    let chunk_size = 19456;
+    let data_chunks = data_vec.chunks(chunk_size);
+
+    for (chunk_index, data_chunk) in data_chunks.enumerate() {
+        let json_array = serde_json::to_string(data_chunk).unwrap();
         let clear = Clear(ClearType::CurrentLine);
         let move_to_col = MoveToColumn(0);
 
-        execute!(
+        let http_client = reqwest::Client::new();
+        let url = url().await.unwrap();
+
+        let request_builder = get_request_builder(
+            &http_client,
+            &url,
+            INDEX_UID,
+            "documents",
+            serde_json::from_str(&json_array).unwrap(),
+            reqwest::Method::POST,
+        ).await.unwrap();
+
+        let res = match request_builder.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                execute!(
             stdout,
             clear,
             move_to_col,
-            SetForegroundColor(Color::Magenta),
-            Print(format!("Count: {}, id: {}, createdAt: {} ", count + 1, data.id, data.created_at)),
+            SetForegroundColor(Color::Red),
+            Print(format!("Add documents error: {:?}", e)),
             ResetColor,
         )?;
-
-        let index = client.index("notes");
-        let res = index.add_documents(&[data], Some("id")).await;
-
-        match res {
-            Ok(res) => {
-                execute!(
-                    stdout,
-                    clear,
-                    move_to_col,
-                    SetForegroundColor(Color::Cyan),
-                    Print(format!("Add documents: {:?}\n", res.enqueued_at)),
-                    ResetColor,
-                )?;
-            }
-            Err(e) => {
-                execute!(
-                    stdout,
-                    clear,
-                    move_to_col,
-                    SetForegroundColor(Color::Red),
-                    Print(format!("add_documents error: {:?}", e)),
-                    ResetColor,
-                )?;
                 errors.lock().unwrap().push(e);
+                continue;
             }
-        }
+        };
+        let res_status = res.status();
+        let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        println!("Add documents: {}, {}", res_status, time);
     }
+
 
     let errors = errors.into_inner().unwrap();
     if !errors.is_empty() {
