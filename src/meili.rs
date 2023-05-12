@@ -7,7 +7,12 @@ use reqwest::RequestBuilder;
 
 use crate::config::config;
 
-const INDEX_UID: &str = "notes";
+pub(crate) async fn index_uid() -> Result<&'static str, Box<dyn Error>> {
+    let config = config()?;
+    let index_uid = format!("{}---notes", config.meili.index);
+    let index_uid_static = Box::leak(index_uid.into_boxed_str());
+    Ok(index_uid_static)
+}
 
 pub(crate) async fn url() -> Result<String, Box<dyn Error>> {
     let config = config()?;
@@ -49,17 +54,17 @@ pub async fn connect_meili() -> Result<Client, Box<dyn Error>> {
     Ok(client)
 }
 
-pub async fn reset(client: &Client) -> Result<(), Box<dyn Error>> {
+pub async fn reset(client: &Client, index: &str) -> Result<(), Box<dyn Error>> {
     let http_client = reqwest::Client::new();
     let url = url().await.unwrap();
 
-    if let Ok(task) = client.index(INDEX_UID).delete().await {
+    if let Ok(task) = client.index(index).delete().await {
         println!("Delete: {}, {}", task.status, task.task_uid);
     } else {
         println!("Error occurred while deleting index. Skipping...");
     }
 
-    let task = client.create_index(INDEX_UID, Some("id")).await.unwrap();
+    let task = client.create_index(index, Some("id")).await.unwrap();
     println!("Create: {}, {}", task.status, task.task_uid);
 
     let settings = meilisearch_sdk::settings::Settings::new().with_searchable_attributes([
@@ -75,18 +80,18 @@ pub async fn reset(client: &Client) -> Result<(), Box<dyn Error>> {
         "tags",
     ]);
 
-    let task: TaskInfo = client.index(INDEX_UID).set_settings(&settings).await.unwrap();
+    let task: TaskInfo = client.index(index).set_settings(&settings).await.unwrap();
     println!("Settings: {}, {}", task.status, task.task_uid);
 
     let pagination = PaginationSetting { max_total_hits: 10000 };
 
-    let task: TaskInfo = client.index(INDEX_UID).set_pagination(pagination).await.unwrap();
+    let task: TaskInfo = client.index(index).set_pagination(pagination).await.unwrap();
     println!("Pagination: {}, {}", task.status, task.task_uid);
 
     let request_builder = get_request_builder(
         &http_client,
         &url,
-        INDEX_UID,
+        index,
         "settings/typo-tolerance",
         json!({ "enabled": false }),
         reqwest::Method::PATCH,

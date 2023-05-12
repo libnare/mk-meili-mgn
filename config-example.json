@@ -11,6 +11,7 @@
     "port": 7700,
     "apikey": "password",
     "ssl": true,
-    "reset": false
+    "reset": false,
+    "index": "index"
   }
 }

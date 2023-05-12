@@ -12,10 +12,8 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::{
     config::config,
     database::{connect_db, query_notes},
-    meili::{connect_meili, get_request_builder, reset, url},
+    meili::{connect_meili, get_request_builder, reset, url, index_uid},
 };
-
-const INDEX_UID: &str = "notes";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -32,11 +30,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let db = connect_db().await.unwrap();
-
     let client = connect_meili().await.unwrap();
+    let index_uid = index_uid().await.unwrap();
 
     if config.meili.reset {
-        match reset(&client).await {
+        match reset(&client, index_uid).await {
             Ok(_) => {
                 stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
                 writeln!(&mut stdout, "Meilisearch index reset.")?;
@@ -97,7 +95,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let request_builder = get_request_builder(
             &http_client,
             &url,
-            INDEX_UID,
+            index_uid,
             "documents",
             data,
             reqwest::Method::POST,

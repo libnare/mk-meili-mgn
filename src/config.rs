@@ -25,8 +25,8 @@ pub struct MeiliConfig {
     pub apikey: Option<String>,
     pub ssl: bool,
     pub reset: bool,
+    pub index: String,
 }
-
 
 pub fn config() -> Result<Config, Box<dyn Error>> {
     let mut file = File::open("config.json")?;
