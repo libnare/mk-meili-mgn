@@ -924,6 +924,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "termcolor",
  "tokio",
  "tokio-postgres",
 ]
