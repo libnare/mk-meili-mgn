@@ -16,7 +16,7 @@ use crate::database::query_notes;
 const INDEX_UID: &str = "notes";
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn main() -> Result<(), Box<dyn Error>> {
     let config = config().unwrap_or_else(|err| {
         println!("Configuration error: {}", err);
         std::process::exit(1);
@@ -39,25 +39,38 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let data_chunks = data_vec.chunks(chunk_size);
 
     for (chunk_index, data_chunk) in data_chunks.enumerate() {
-        let json_array = serde_json::to_string(data_chunk).unwrap();
+        let json_array = match serde_json::to_string(data_chunk) {
+            Ok(json_array) => json_array,
+            Err(e) => {
+                errors.lock().unwrap().push(format!("{}: error: {:?}", chunk_index, e));
+                continue;
+            }
+        };
 
         let http_client = reqwest::Client::new();
         let url = url().await.unwrap();
+
+        let data = match serde_json::from_str(&json_array) {
+            Ok(data) => data,
+            Err(e) => {
+                errors.lock().unwrap().push(format!("{}: error: {:?}", chunk_index, e));
+                continue;
+            }
+        };
 
         let request_builder = get_request_builder(
             &http_client,
             &url,
             INDEX_UID,
             "documents",
-            serde_json::from_str(&json_array).unwrap(),
+            data,
             reqwest::Method::POST,
         ).await.unwrap();
 
         let res = match request_builder.send().await {
             Ok(res) => res,
             Err(e) => {
-                println!("Add documents error: {:?}", e);
-                errors.lock().unwrap().push(e);
+                errors.lock().unwrap().push(format!("{}: error: {:?}", chunk_index, e));
                 continue;
             }
         };
@@ -71,7 +84,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     if !errors.is_empty() {
         println!("{} errors occurred", errors.len());
         let timestamp = Utc::now().timestamp_millis();
-        std::fs::write(format!("error-{}.log", timestamp), format!("{:?}", errors)).unwrap();
+        std::fs::write(format!("error-{}.log", timestamp), errors.join("\n")).unwrap();
         println!("All errors have been output to error-{}.log", timestamp);
     }
 
