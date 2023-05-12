@@ -41,11 +41,11 @@ pub async fn connect_meili() -> Result<Client, Box<dyn Error>> {
     let version = match client.get_version().await {
         Ok(version) => version,
         Err(e) => {
-            println!("Error occurred while connecting to MeiliSearch: {}", e);
+            println!("Error occurred while connecting to Meilisearch: {}", e);
             return Err(e.into());
         }
     };
-    println!("Connected to MeiliSearch: {}", version.pkg_version);
+    println!("Connected to Meilisearch: {}", version.pkg_version);
     Ok(client)
 }
 
