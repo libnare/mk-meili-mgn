@@ -9,21 +9,22 @@ use crate::config::config;
 
 const INDEX_UID: &str = "notes";
 
-async fn url() -> Result<String, Box<dyn Error>> {
+pub(crate) async fn url() -> Result<String, Box<dyn Error>> {
     let config = config()?;
     let protocol = if config.meili.ssl { "https" } else { "http" };
     Ok(format!("{}://{}:{}", protocol, config.meili.host, config.meili.port))
 }
 
-async fn get_request_builder(
+pub(crate) async fn get_request_builder(
     http_client: &reqwest::Client,
     url: &str,
     index_uid: &str,
     path: &str,
     json_payload: serde_json::Value,
+    method: reqwest::Method,
 ) -> Result<RequestBuilder, Box<dyn Error>> {
     let mut request_builder = http_client
-        .patch(&format!("{}/indexes/{}/{}", url, index_uid, path))
+        .request(method, &format!("{}/indexes/{}/{}", url, index_uid, path))
         .json(&json_payload);
 
     let config = config()?;
@@ -87,6 +88,7 @@ pub async fn reset(client: &Client) -> Result<(), Box<dyn Error>> {
         INDEX_UID,
         "settings/typo-tolerance",
         json!({ "enabled": false }),
+        reqwest::Method::PATCH,
     ).await?;
 
     let typo_tolerances = match request_builder.send().await {
