@@ -21,6 +21,8 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        name: Rust Cache
       - name: Build
         run: cargo ${{ matrix.config == 'release' && 'build --release' || 'build' }}
       - name: Archive artifacts
