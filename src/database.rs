@@ -28,16 +28,20 @@ pub async fn connect_db() -> Result<Client, Box<dyn Error>> {
 }
 
 pub async fn query_notes(db: &Client) -> Result<Vec<Notes>, Box<dyn Error>> {
-    let rows = db
-        .query("
+    let config = config()?;
+
+    let mut query = std::string::String::from("
         SELECT id, \"createdAt\", \"userId\", \"userHost\", \"channelId\", cw, text, tags
         FROM note
         WHERE COALESCE(text, cw) IS NOT NULL
           AND visibility IN ('home', 'public')
-          AND text IS NOT NULL",
-            &[],
-        )
-        .await?;
+          AND text IS NOT NULL");
+
+    if config.option.localonly {
+        query.push_str(" AND \"userHost\" IS NULL");
+    }
+
+    let rows = db.query(&query, &[]).await?;
 
     let mut data_vec = Vec::new();
 

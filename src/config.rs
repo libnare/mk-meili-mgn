@@ -7,6 +7,7 @@ use serde::{Deserialize};
 pub struct Config {
     pub db: DbConfig,
     pub meili: MeiliConfig,
+    pub option: OptionConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -26,6 +27,11 @@ pub struct MeiliConfig {
     pub ssl: bool,
     pub reset: bool,
     pub index: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OptionConfig {
+    pub localonly: bool,
 }
 
 pub fn config() -> Result<Config, Box<dyn Error>> {

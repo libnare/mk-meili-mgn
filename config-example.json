@@ -13,5 +13,8 @@
     "ssl": true,
     "reset": false,
     "index": "undefined"
+  },
+  "option": {
+    "localonly": false
   }
 }
