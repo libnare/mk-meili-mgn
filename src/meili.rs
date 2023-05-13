@@ -1,10 +1,6 @@
-use meilisearch_sdk::Client;
-use meilisearch_sdk::settings::PaginationSetting;
-use meilisearch_sdk::task_info::TaskInfo;
 use serde_json::json;
 use std::error::Error;
-use reqwest::RequestBuilder;
-
+use reqwest::{Client, RequestBuilder};
 use crate::config::config;
 
 pub(crate) async fn index_uid() -> Result<&'static str, Box<dyn Error>> {
@@ -21,15 +17,13 @@ pub(crate) async fn url() -> Result<String, Box<dyn Error>> {
 }
 
 pub(crate) async fn get_request_builder(
-    http_client: &reqwest::Client,
     url: &str,
-    index_uid: &str,
     path: &str,
-    json_payload: serde_json::Value,
+    json_payload: Option<serde_json::Value>,
     method: reqwest::Method,
 ) -> Result<RequestBuilder, Box<dyn Error>> {
-    let mut request_builder = http_client
-        .request(method, &format!("{}/indexes/{}/{}", url, index_uid, path))
+    let mut request_builder = Client::new()
+        .request(method, format!("{}/{}", url, path))
         .json(&json_payload);
 
     let config = config()?;
@@ -40,72 +34,86 @@ pub(crate) async fn get_request_builder(
     Ok(request_builder)
 }
 
-pub async fn connect_meili() -> Result<Client, Box<dyn Error>> {
-    let config = config()?;
-    let client = Client::new(&url().await?, config.meili.apikey.as_ref().map(String::as_str));
-    let version = match client.get_version().await {
-        Ok(version) => version,
-        Err(e) => {
-            println!("Error occurred while connecting to Meilisearch: {}", e);
-            return Err(e.into());
-        }
-    };
-    println!("Connected to Meilisearch: {}", version.pkg_version);
-    Ok(client)
+pub async fn connection() -> Result<(), Box<dyn Error>> {
+    let version = get_request_builder(
+        &url().await?,
+        "version",
+        None,
+        reqwest::Method::GET,
+    ).await?;
+    let response = version.send().await?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("Error occurred while connecting to Meilisearch: {}", status).into());
+    }
+    let value = response.json::<serde_json::Value>().await?;
+    let version = value["pkgVersion"].as_str().unwrap();
+    Ok(println!("Meilisearch version: {}", version))
 }
 
-pub async fn reset(client: &Client, index: &str) -> Result<(), Box<dyn Error>> {
-    let http_client = reqwest::Client::new();
+pub async fn reset() -> Result<(), Box<dyn Error>> {
     let url = url().await.unwrap();
+    let index = index_uid().await.unwrap();
 
-    if let Ok(task) = client.index(index).delete().await {
-        println!("Delete: {}, {}", task.status, task.task_uid);
-    } else {
-        println!("Error occurred while deleting index. Skipping...");
-    }
-
-    let task = client.create_index(index, Some("id")).await.unwrap();
-    println!("Create: {}, {}", task.status, task.task_uid);
-
-    let settings = meilisearch_sdk::settings::Settings::new().with_searchable_attributes([
-        "text",
-        "cw",
-    ]).with_sortable_attributes([
-        "createdAt",
-    ]).with_filterable_attributes([
-        "createdAt",
-        "userId",
-        "userHost",
-        "channelId",
-        "tags",
-    ]);
-
-    let task: TaskInfo = client.index(index).set_settings(&settings).await.unwrap();
-    println!("Settings: {}, {}", task.status, task.task_uid);
-
-    let pagination = PaginationSetting { max_total_hits: 10000 };
-
-    let task: TaskInfo = client.index(index).set_pagination(pagination).await.unwrap();
-    println!("Pagination: {}, {}", task.status, task.task_uid);
-
-    let request_builder = get_request_builder(
-        &http_client,
+    let delete = get_request_builder(
         &url,
-        index,
-        "settings/typo-tolerance",
-        json!({ "enabled": false }),
+        format!("indexes/{}", index).as_str(),
+        None,
+        reqwest::Method::DELETE,
+    ).await?;
+    let delete = delete.send().await?;
+    if !delete.status().is_success() {
+        println!("Error occurred while deleting index: {}, Skipping...", delete.status());
+    }
+    let response = delete.json::<serde_json::Value>().await?;
+    println!("Delete: {}, {}", response["status"], response["taskUid"]);
+
+    let create = get_request_builder(
+        &url,
+        "indexes",
+        Some(json!({
+            "uid": index,
+            "primaryKey": "id",
+        })),
+        reqwest::Method::POST,
+    ).await?;
+    let create = create.send().await.unwrap();
+    let response = create.json::<serde_json::Value>().await?;
+    println!("Create: {}, {}", response["status"], response["taskUid"]);
+
+
+    let update_settings = json!({
+        "searchableAttributes": [
+            "text",
+            "cw",
+        ],
+        "sortableAttributes": [
+            "createdAt",
+        ],
+        "filterableAttributes": [
+            "createdAt",
+            "userId",
+            "userHost",
+            "channelId",
+            "tags",
+        ],
+        "typoTolerance": {
+            "enabled": false
+        },
+        "pagination": {
+            "maxTotalHits": 10000
+        }
+    });
+
+    let settings = get_request_builder(
+        &url,
+        format!("indexes/{}/settings", index).as_str(),
+        Some(update_settings),
         reqwest::Method::PATCH,
     ).await?;
-
-    let typo_tolerances = match request_builder.send().await {
-        Ok(response) => response,
-        Err(e) => {
-            println!("Error occurred while setting typo tolerance: {}", e);
-            return Err(e.into());
-        }
-    };
-    let json = typo_tolerances.json::<TaskInfo>().await.unwrap();
-    println!("Typo Tolerance: {}, {}", json.status, json.task_uid);
+    let settings = settings.send().await.unwrap();
+    let response = settings.json::<serde_json::Value>().await?;
+    println!("Settings: {}, {}", response["status"], response["taskUid"]);
 
     Ok(())
 }

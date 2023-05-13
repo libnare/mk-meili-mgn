@@ -12,7 +12,7 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::{
     config::config,
     database::{connect_db, query_notes},
-    meili::{connect_meili, get_request_builder, reset, url, index_uid},
+    meili::{connection, get_request_builder, reset, url, index_uid},
 };
 
 #[tokio::main]
@@ -30,11 +30,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let db = connect_db().await.unwrap();
-    let client = connect_meili().await.unwrap();
     let index_uid = index_uid().await.unwrap();
+    let url = url().await.unwrap();
+
+    connection().await.unwrap();
 
     if config.meili.reset {
-        match reset(&client, index_uid).await {
+        match reset().await {
             Ok(_) => {
                 stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
                 writeln!(&mut stdout, "Meilisearch index reset.")?;
@@ -81,8 +83,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         };
 
-        let http_client = reqwest::Client::new();
-        let url = url().await.unwrap();
 
         let data = match serde_json::from_str(&json_array) {
             Ok(data) => data,
@@ -93,22 +93,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
 
         let request_builder = get_request_builder(
-            &http_client,
             &url,
-            index_uid,
-            "documents",
+            format!("indexes/{}/documents", index_uid).as_str(),
             data,
             reqwest::Method::POST,
         ).await.unwrap();
 
-        let res = match request_builder.send().await {
-            Ok(res) => res,
-            Err(e) => {
-                errors.lock().unwrap().push(format!("Error in chunk {}: {}", chunk_index, e));
-                continue;
-            }
-        };
-
+        let res = request_builder.send().await?;
         let res_status = res.status();
 
         if res_status.is_success() {
