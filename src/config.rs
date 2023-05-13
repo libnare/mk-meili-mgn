@@ -32,6 +32,7 @@ pub struct MeiliConfig {
 #[derive(Debug, Deserialize)]
 pub struct OptionConfig {
     pub localonly: bool,
+    pub limit: Option<i64>,
 }
 
 pub fn config() -> Result<Config, Box<dyn Error>> {

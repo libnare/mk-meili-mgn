@@ -15,6 +15,7 @@
     "index": "undefined"
   },
   "option": {
-    "localonly": false
+    "localonly": false,
+    "limit": null
   }
 }

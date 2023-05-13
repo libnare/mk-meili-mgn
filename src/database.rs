@@ -41,6 +41,10 @@ pub async fn query_notes(db: &Client) -> Result<Vec<Notes>, Box<dyn Error>> {
         query.push_str(" AND \"userHost\" IS NULL");
     }
 
+    if let Some(limit) = config.option.limit {
+        query.push_str(&format!(" LIMIT {}", limit));
+    }
+
     let rows = db.query(&query, &[]).await?;
 
     let mut data_vec = Vec::new();
