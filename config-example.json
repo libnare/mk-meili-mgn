@@ -12,6 +12,6 @@
     "apikey": "password",
     "ssl": true,
     "reset": false,
-    "index": "index"
+    "index": "undefined"
   }
 }
