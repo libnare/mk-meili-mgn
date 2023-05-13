@@ -1,0 +1,30 @@
+name: Build Rust
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ macos-latest, windows-latest, ubuntu-latest ]
+        config: [ debug, release ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - name: Build
+        run: cargo ${{ matrix.config == 'release' && 'build --release' || 'build' }}
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-${{ matrix.config }}-artifacts
+          path: target/${{ matrix.config }}/mk-meili-mgn${{ matrix.os == 'windows-latest' && '.exe' || '' }}
