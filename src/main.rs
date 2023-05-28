@@ -4,6 +4,7 @@ use std::io::Write;
 use chrono::Utc;
 use kdam::{BarExt, Column, RichProgress, tqdm};
 use kdam::term::Colorizer;
+use serde_json::json;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use crate::{
@@ -33,7 +34,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let db = connect_db().await.unwrap();
     let index_uid = index_uid().await.unwrap();
-    let url = url().await.unwrap();
 
     connection().await.unwrap();
 
@@ -96,30 +96,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     for (chunk_index, data_chunk) in data_chunks.enumerate() {
         pb.replace(1, Column::text("[bold blue]processing"));
-        let json_array = match serde_json::to_string(data_chunk) {
-            Ok(json_array) => json_array,
-            Err(e) => {
-                errors.lock().unwrap().push(format!("Error in chunk {}: {}", chunk_index, e));
-                continue;
-            }
-        };
 
-        let data = match serde_json::from_str(&json_array) {
-            Ok(data) => data,
-            Err(e) => {
-                errors.lock().unwrap().push(format!("Error in chunk {}: {}", chunk_index, e));
-                continue;
-            }
-        };
+        let data = json!(data_chunk);
 
         let request_builder = get_request_builder(
-            &url,
+            &url().await?,
             format!("indexes/{}/documents", index_uid).as_str(),
-            data,
             reqwest::Method::POST,
         ).await.unwrap();
 
-        let res = request_builder.send().await?;
+        let res = request_builder.json(&data).send().await?;
         let res_status = res.status();
 
         if res_status.is_success() {

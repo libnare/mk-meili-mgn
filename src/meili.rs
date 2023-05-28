@@ -21,12 +21,10 @@ pub(crate) async fn url() -> Result<String, Box<dyn Error>> {
 pub(crate) async fn get_request_builder(
     url: &str,
     path: &str,
-    json_payload: Option<serde_json::Value>,
     method: reqwest::Method,
 ) -> Result<RequestBuilder, Box<dyn Error>> {
     let mut request_builder = Client::new()
-        .request(method, format!("{}/{}", url, path))
-        .json(&json_payload);
+        .request(method, format!("{}/{}", url, path));
 
     let config = config()?;
     if let Some(apikey) = &config.meili.apikey {
@@ -40,7 +38,6 @@ pub async fn connection() -> Result<(), Box<dyn Error>> {
     let version = get_request_builder(
         &url().await?,
         "version",
-        None,
         reqwest::Method::GET,
     ).await?;
     let response = version.send().await?;
@@ -60,7 +57,6 @@ pub async fn reset() -> Result<(), Box<dyn Error>> {
     let delete = get_request_builder(
         &url,
         format!("indexes/{}", index).as_str(),
-        None,
         reqwest::Method::DELETE,
     ).await?;
     let delete = delete.send().await?;
@@ -73,13 +69,12 @@ pub async fn reset() -> Result<(), Box<dyn Error>> {
     let create = get_request_builder(
         &url,
         "indexes",
-        Some(json!({
-            "uid": index,
-            "primaryKey": "id",
-        })),
         reqwest::Method::POST,
     ).await?;
-    let create = create.send().await.unwrap();
+    let create = create.json(&json!({
+        "uid": index,
+        "primaryKey": "id",
+    })).send().await?;
     let response = create.json::<serde_json::Value>().await?;
     println!("Create: {}, {}", response["status"], response["taskUid"]);
 
@@ -110,10 +105,9 @@ pub async fn reset() -> Result<(), Box<dyn Error>> {
     let settings = get_request_builder(
         &url,
         format!("indexes/{}/settings", index).as_str(),
-        Some(update_settings),
         reqwest::Method::PATCH,
     ).await?;
-    let settings = settings.send().await.unwrap();
+    let settings = settings.json(&update_settings).send().await?;
     let response = settings.json::<serde_json::Value>().await?;
     println!("Settings: {}, {}", response["status"], response["taskUid"]);
 
