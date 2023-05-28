@@ -1,7 +1,9 @@
 use std::error::Error;
-use crate::config::config;
-use tokio_postgres::{Client, NoTls};
+
 use chrono::{DateTime, Utc};
+use tokio_postgres::{Client, NoTls};
+
+use crate::config::config;
 use crate::r#struct::Notes;
 
 pub async fn connect_db() -> Result<Client, Box<dyn Error>> {

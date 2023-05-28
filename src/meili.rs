@@ -1,6 +1,8 @@
-use serde_json::json;
 use std::error::Error;
+
 use reqwest::{Client, RequestBuilder};
+use serde_json::json;
+
 use crate::config::config;
 
 pub(crate) async fn index_uid() -> Result<&'static str, Box<dyn Error>> {

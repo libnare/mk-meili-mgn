@@ -1,11 +1,7 @@
-mod database;
-mod config;
-mod r#struct;
-mod meili;
-
-use chrono::Utc;
 use std::{error::Error, sync::Mutex};
 use std::io::Write;
+
+use chrono::Utc;
 use kdam::{BarExt, Column, RichProgress, tqdm};
 use kdam::term::Colorizer;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -13,8 +9,13 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::{
     config::config,
     database::{connect_db, query_notes},
-    meili::{connection, get_request_builder, reset, url, index_uid},
+    meili::{connection, get_request_builder, index_uid, reset, url},
 };
+
+mod database;
+mod config;
+mod r#struct;
+mod meili;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
