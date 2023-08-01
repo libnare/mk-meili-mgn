@@ -1,7 +1,10 @@
 # Misskey Meilisearch Data Migration Tool
 
-This tool is designed to migrate data from PostgreSQL to Meilisearch and is intended for use with Misskey instances.  
-Results of the [Stella](https://stella.place) test, the migration involved importing 3,149,215 counts and took 3 minutes
-and 22 seconds.
+This tool is designed to migrate data from PostgreSQL to Meilisearch and is intended for use with Misskey instances.
 
-![Screenshot 1](assets/Screenshot_1.png)
+![Screenshot](assets/Screenshot_2.png)
+
+## Docker Image
+```docker
+asia-docker.pkg.dev/libnare/mk-meili-mgn/main:latest
+```
