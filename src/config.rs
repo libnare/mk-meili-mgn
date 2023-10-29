@@ -32,6 +32,7 @@ pub struct MeiliConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct OptionConfig {
+    pub idtype: Option<String>,
     pub localonly: bool,
     pub limit: Option<i64>,
 }

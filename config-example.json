@@ -15,6 +15,7 @@
     "index": "undefined"
   },
   "option": {
+    "idtype": "aid",
     "localonly": false,
     "limit": null
   }

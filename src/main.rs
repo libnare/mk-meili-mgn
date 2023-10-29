@@ -17,6 +17,7 @@ mod database;
 mod config;
 mod r#struct;
 mod meili;
+mod aid;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
