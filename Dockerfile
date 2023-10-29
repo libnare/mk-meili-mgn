@@ -16,7 +16,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release
 
-FROM gcr.io/distroless/cc:nonroot AS runtime
+FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
 WORKDIR /app
 
 COPY --from=builder /app/target/release/mk-meili-mgn ./
