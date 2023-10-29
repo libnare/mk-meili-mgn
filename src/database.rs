@@ -5,7 +5,7 @@ use tokio_postgres::{Client, NoTls};
 
 use crate::config::config;
 use crate::r#struct::Notes;
-use crate::aid;
+use crate::aid_series;
 
 pub async fn connect_db() -> Result<Client, Box<dyn Error>> {
     let config = config()?;
@@ -74,24 +74,26 @@ pub async fn query_notes(db: &Client) -> Result<Vec<Notes>, Box<dyn Error>> {
 
             data_vec.push(notes);
         }
-    } else if config.option.idtype.as_ref().unwrap() == "aid" {
-        for row in rows {
-            let created_at: DateTime<Utc> = aid::parse(row.get("id"));
-            let notes = Notes {
-                id: row.get("id"),
-                created_at: created_at.timestamp() * 1000 + created_at.timestamp_subsec_millis() as i64,
-                user_id: row.get("userId"),
-                user_host: row.get("userHost"),
-                channel_id: row.get("channelId"),
-                cw: row.get("cw"),
-                text: row.get("text"),
-                tags: row.get("tags"),
-            };
+    } else if let Some(idtype) = config.option.idtype.as_ref() {
+        if idtype == "aid" || idtype == "aidx" {
+            for row in rows {
+                let created_at: DateTime<Utc> = aid_series::parse(row.get("id"));
+                let notes = Notes {
+                    id: row.get("id"),
+                    created_at: created_at.timestamp() * 1000 + created_at.timestamp_subsec_millis() as i64,
+                    user_id: row.get("userId"),
+                    user_host: row.get("userHost"),
+                    channel_id: row.get("channelId"),
+                    cw: row.get("cw"),
+                    text: row.get("text"),
+                    tags: row.get("tags"),
+                };
 
-            data_vec.push(notes);
+                data_vec.push(notes);
+            }
+        } else {
+            panic!("Invalid idtype: {}", idtype);
         }
-    } else {
-        panic!("Invalid idtype: {}", config.option.idtype.as_ref().unwrap());
     }
 
     Ok(data_vec)

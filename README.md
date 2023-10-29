@@ -7,7 +7,7 @@ This tool is designed to migrate data from PostgreSQL to Meilisearch and is inte
 ## Warning
 If you have Misskey 2023.11.0-beta.4 or earlier, please set the `idtype` in your configuration to `null`.
 
-**Currently, we only support AID.**
+**Currently, we only support AID and AIDX.**
 
 ## Docker Image
 ```docker
