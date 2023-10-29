@@ -1,6 +1,5 @@
 use std::error::Error;
 
-use chrono::{DateTime, Utc};
 use tokio_postgres::{Client, NoTls};
 
 use crate::config::config;
@@ -60,34 +59,32 @@ pub async fn query_notes(db: &Client) -> Result<Vec<Notes>, Box<dyn Error>> {
 
     if config.option.idtype.is_none() {
         for row in rows {
-            let created_at: DateTime<Utc> = row.get("createdAt");
-            let notes = Notes {
-                id: row.get("id"),
-                created_at: created_at.timestamp() * 1000 + created_at.timestamp_subsec_millis() as i64,
-                user_id: row.get("userId"),
-                user_host: row.get("userHost"),
-                channel_id: row.get("channelId"),
-                cw: row.get("cw"),
-                text: row.get("text"),
-                tags: row.get("tags"),
-            };
+            let notes = Notes::new(
+                row.get("id"),
+                row.get("createdAt"),
+                row.get("userId"),
+                row.get("userHost"),
+                row.get("channelId"),
+                row.get("cw"),
+                row.get("text"),
+                row.get("tags"),
+            );
 
             data_vec.push(notes);
         }
     } else if let Some(idtype) = config.option.idtype.as_ref() {
         if idtype == "aid" || idtype == "aidx" {
             for row in rows {
-                let created_at: DateTime<Utc> = aid_series::parse(row.get("id"));
-                let notes = Notes {
-                    id: row.get("id"),
-                    created_at: created_at.timestamp() * 1000 + created_at.timestamp_subsec_millis() as i64,
-                    user_id: row.get("userId"),
-                    user_host: row.get("userHost"),
-                    channel_id: row.get("channelId"),
-                    cw: row.get("cw"),
-                    text: row.get("text"),
-                    tags: row.get("tags"),
-                };
+                let notes = Notes::new(
+                    row.get("id"),
+                    aid_series::parse(row.get("id")),
+                    row.get("userId"),
+                    row.get("userHost"),
+                    row.get("channelId"),
+                    row.get("cw"),
+                    row.get("text"),
+                    row.get("tags"),
+                );
 
                 data_vec.push(notes);
             }
