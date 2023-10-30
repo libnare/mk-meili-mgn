@@ -2,9 +2,9 @@ use std::error::Error;
 
 use tokio_postgres::{Client, NoTls};
 
+use crate::aid_series;
 use crate::config::config;
 use crate::r#struct::Notes;
-use crate::aid_series;
 
 pub async fn connect_db() -> Result<Client, Box<dyn Error>> {
     let config = config()?;
