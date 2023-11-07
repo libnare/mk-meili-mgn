@@ -6,6 +6,7 @@ use kdam::{BarExt, Column, RichProgress, tqdm};
 use kdam::term::Colorizer;
 use serde_json::json;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use tokio::signal;
 
 use crate::{
     config::config,
@@ -35,6 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
+    let sigint = signal::ctrl_c();
     let db = connect_db().await?;
     let index_uid = index_uid();
     let client = Client::new(config.meili.apikey)?;
@@ -95,36 +97,55 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ],
     );
 
-    let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    pb.write(&format!("<-- {}: Starting indexing. -->", time).colorize("yellow"));
-
-    for (chunk_index, data_chunk) in data_chunks.enumerate() {
-        pb.replace(1, Column::text("[bold blue]processing"));
-
-        let data = json!(data_chunk);
-
-        let res = client
-            .post(format!("{}/{}", url(), format!("indexes/{}/documents", index_uid).as_str()))
-            .json(&data)
-            .send().await?;
-
-        let res_status = res.status();
-
-        if res_status.is_success() {
-            total_added += data_chunk.len();
-            let new = std::cmp::min(total_added + chunk_size, data_len);
-            pb.update_to(new);
-        } else {
-            errors.lock().unwrap().push(
-                format!("Error in chunk {}: {}",
-                        chunk_index, res.text().await.unwrap()
-                ));
+    tokio::select! {
+        _ = sigint => {
+            let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            pb.write(&format!("<-- {}: Indexing interrupted. -->", time).colorize("red"));
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
+            writeln!(&mut stdout, "\nProgram terminated by user.")?;
+            stdout.reset()?;
+            std::process::exit(1);
         }
-    }
-    pb.replace(1, Column::text("[bold blue]done"));
+        _ = async {
+            let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            pb.write(&format!("<-- {}: Starting indexing. -->", time).colorize("yellow"));
 
-    let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    pb.write(&format!("<-- {}: Finished indexing. -->", time).colorize("yellow"));
+            for (chunk_index, data_chunk) in data_chunks.enumerate() {
+                pb.replace(1, Column::text("[bold blue]processing"));
+
+                let data = json!(data_chunk);
+
+                let res = match client
+                    .post(format!("{}/{}", url(), format!("indexes/{}/documents", index_uid).as_str()))
+                    .json(&data)
+                    .send().await {
+                    Ok(res) => res,
+                    Err(e) => {
+                        errors.lock().unwrap().push(
+                            format!("Error in chunk {}: {}", chunk_index, e)
+                        );
+                        continue;
+                    }
+                };
+
+                if res.status().is_success() {
+                    total_added += data_chunk.len();
+                    let new = std::cmp::min(total_added + chunk_size, data_len);
+                    pb.update_to(new);
+                } else {
+                    errors.lock().unwrap().push(
+                        format!("Error in chunk {}: {}",
+                                chunk_index, res.text().await.unwrap()
+                        )
+                    );
+                }
+            }
+            pb.replace(1, Column::text("[bold blue]done"));
+
+            let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            pb.write(&format!("<-- {}: Finished indexing. -->", time).colorize("yellow"));
+        } => {}
+    }
 
     let errors = errors.into_inner().unwrap();
     let total_skipped = errors.len();
