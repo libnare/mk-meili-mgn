@@ -1,12 +1,11 @@
 use std::{error::Error, sync::Mutex};
-use std::io::Write;
 
 use chrono::Utc;
-use kdam::{BarExt, Column, RichProgress, tqdm};
-use kdam::term::Colorizer;
 use serde_json::json;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use tokio::signal;
+
+use console::Style;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::{
     config::config,
@@ -24,14 +23,12 @@ mod client;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
 
     let config = match config() {
         Ok(config) => config,
         Err(err) => {
-            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-            writeln!(&mut stdout, "Configuration error: {}", err)?;
-            stdout.reset()?;
+            let red = Style::new().color256(196);
+            println!("{}: {}", red.apply_to("Configuration error"), err);
             std::process::exit(1);
         }
     };
@@ -46,14 +43,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if config.meili.reset {
         match reset(&client).await {
             Ok(_) => {
-                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-                writeln!(&mut stdout, "Meilisearch index reset.")?;
-                stdout.reset()?;
+                let green = Style::new().color256(28);
+                println!("{}", green.apply_to("Meilisearch index reset."));
             }
             Err(e) => {
-                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-                writeln!(&mut stdout, "Failed to reset Meilisearch index: {}", e)?;
-                stdout.reset()?;
+                let red = Style::new().color256(196);
+                println!("{}: {}", red.apply_to("Failed to reset Meilisearch index"), e);
                 std::process::exit(1);
             }
         }
@@ -61,58 +56,37 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let data_vec = query_notes(&db).await.unwrap();
     let data_len = data_vec.len();
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(0x87, 0xce, 0xeb))))?; // Sky blue
-    writeln!(&mut stdout, "Retrieved {} notes from database.", data_len)?;
-    stdout.reset()?;
+
+    let sky_blue = Style::new().color256(111);
+    println!("Retrieved {} notes from database.", sky_blue.apply_to(data_len));
 
     let errors = Mutex::new(Vec::new());
     let chunk_size = 19456; // https://stella.place/notes/9eo7ew8sed
     let data_chunks = data_vec.chunks(chunk_size);
     let mut total_added = 0;
 
-    let mut pb = RichProgress::new(
-        tqdm!(
-            total = (data_len as u64).try_into().unwrap(),
-            unit_divisor = 1024,
-            unit = " Chunk"
-        ),
-        vec![
-            Column::Spinner(
-                "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-                    .chars()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<String>>(),
-                80.0,
-                1.0,
-            ),
-            Column::text("[bold blue]?"),
-            Column::Bar,
-            Column::Percentage(1),
-            Column::text("•"),
-            Column::CountTotal,
-            Column::text("•"),
-            Column::Rate,
-            Column::text("•"),
-            Column::ElapsedTime,
-        ],
+    let pb = ProgressBar::new(data_len as u64);
+    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})")
+        .unwrap()
+        .progress_chars("#>-")
     );
 
     tokio::select! {
         _ = sigint => {
             let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-            pb.write(&format!("<-- {}: Indexing interrupted. -->", time).colorize("red"));
-            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-            writeln!(&mut stdout, "\nProgram terminated by user.")?;
-            stdout.reset()?;
+            let red = Style::new().color256(160);
+            pb.finish();
+            println!("<-- {}: Indexing interrupted. -->", red.apply_to(time));
+            println!("{}", red.apply_to("Program terminated by user."));
             std::process::exit(1);
         }
         _ = async {
+            pb.set_prefix("processing");
             let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-            pb.write(&format!("<-- {}: Starting indexing. -->", time).colorize("yellow"));
+            let yellow = Style::new().color256(154);
+            pb.println(&format!("<-- {}: Starting indexing. -->", yellow.apply_to(time)));
 
             for (chunk_index, data_chunk) in data_chunks.enumerate() {
-                pb.replace(1, Column::text("[bold blue]processing"));
-
                 let data = json!(data_chunk);
 
                 let res = match client
@@ -130,20 +104,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 if res.status().is_success() {
                     total_added += data_chunk.len();
-                    let new = std::cmp::min(total_added + chunk_size, data_len);
-                    pb.update_to(new);
+                    let new = std::cmp::min(total_added + chunk_size, data_len) as u64;
+                    pb.set_position(new);
                 } else {
                     errors.lock().unwrap().push(
                         format!("Error in chunk {}: {}",
-                                chunk_index, res.text().await.unwrap()
+                            chunk_index, res.text().await.unwrap()
                         )
                     );
                 }
             }
-            pb.replace(1, Column::text("[bold blue]done"));
-
+            pb.finish_with_message("done");
             let time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-            pb.write(&format!("<-- {}: Finished indexing. -->", time).colorize("yellow"));
+            let green = Style::new().color256(69);
+            pb.println(&format!("<-- {}: Indexing completed. -->", green.apply_to(time)));
         } => {}
     }
 
@@ -151,22 +125,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let total_skipped = errors.len();
 
     if total_skipped > 0 {
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-        writeln!(&mut stdout, "\n{} errors occurred", total_skipped)?;
+        let red = Style::new().color256(196);
+        println!("\n{} errors occurred", red.apply_to(total_skipped));
         let timestamp = Utc::now().timestamp_millis();
         std::fs::write(format!("error-{}.log", timestamp), errors.join("\n")).unwrap();
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
-        writeln!(&mut stdout, "\nAll errors have been output to error-{}.log", timestamp)?;
-        stdout.reset()?;
+        let yellow = Style::new().color256(226);
+        println!("{}", yellow.apply_to(format!("\nAll errors have been output to error-{}.log", timestamp)));
     }
 
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-    writeln!(&mut stdout, "\n{} notes have been added", total_added)?;
-    stdout.reset()?;
+    let sky_blue = Style::new().color256(111);
+    println!("{} notes have been added", sky_blue.apply_to(total_added));
     if total_skipped > 0 {
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(0x00, 0x8b, 0x8b))))?; // Dark cyan
-        writeln!(&mut stdout, "\n{} notes were skipped due to errors", total_skipped)?;
-        stdout.reset()?;
+        let cyan = Style::new().color256(37);
+        println!("\n{} notes were skipped due to errors", cyan.apply_to(total_skipped));
     }
 
     Ok(())

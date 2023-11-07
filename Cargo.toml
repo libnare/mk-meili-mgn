@@ -6,11 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = "0.4.24"
-serde = { version = "1.0.160", features = ["derive"] }
-serde_json = "1.0.96"
-tokio = { version = "1.28.0", features = ["full"] }
-tokio-postgres = { version = "0.7.8", features = ["with-chrono-0_4"] }
-reqwest = { version = "0.11", features = ["json"] }
-kdam = "0.3.0"
-termcolor = "1.2.0"
+chrono = "0.4.31"
+serde = { version = "1.0.192", features = ["derive"] }
+serde_json = "1.0.108"
+tokio = { version = "1.33.0", features = ["full"] }
+tokio-postgres = { version = "0.7.10", features = ["with-chrono-0_4"] }
+reqwest = { version = "0.11.22", features = ["json"] }
+indicatif = "0.17.7"
+console = "0.15.7"
