@@ -11,5 +11,5 @@ If you have Misskey 2023.11.0-beta.4 or earlier, please set the `idtype` in your
 
 ## Docker Image
 ```docker
-asia-docker.pkg.dev/libnare/mk-meili-mgn/main:latest
+cr.libnare.net/mk-meili-mgn/main:latest
 ```
