@@ -57,7 +57,7 @@ jobs:
           images: ${{ secrets.ARTIFACT_REGISTRY }}/libnare/${{ github.event.repository.name }}/${{ github.ref_name }}
       - name: Build and Push
         env:
-          IMAGE_TAG: ${{ github.sha }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         uses: docker/build-push-action@v5
         with:
           context: .
