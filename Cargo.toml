@@ -11,6 +11,6 @@ serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
 tokio = { version = "1.36.0", features = ["full"] }
 tokio-postgres = { version = "0.7.10", features = ["with-chrono-0_4"] }
-reqwest = { version = "0.11.27", features = ["json"] }
+reqwest = { version = "0.11.27", features = ["json", "rustls"] }
 indicatif = "0.17.8"
 console = "0.15.8"
